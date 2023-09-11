@@ -3,9 +3,12 @@
 
 enum StatusCode: int {
     success = 0,
-    vulkanLibraryLoadError,
-    vulkanExportedFunctionLoadError,
-    vlukanGlobalFunctionLoadError
+    vulkanError,
+    extensionNotFound,
+    layerNotFound,
+    noPhysicalDeviceFound,
+    noProprerPhysicalDeviceFound,
+    deviceCreationError
 };
 
 #endif

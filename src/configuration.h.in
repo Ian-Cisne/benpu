@@ -1,17 +1,6 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
-#define VK_NO_PROTOTYPES
-
-namespace benpu{
-
-#if defined _WIN32 
-typedef HMODULE dynamic_libray; 
-#elif defined __linux 
-typedef void* dynamic_libray; 
-#endif 
-
-}
 
 
 #endif

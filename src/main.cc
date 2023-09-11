@@ -45,6 +45,8 @@ int main() {
   benpu::mVideoManager.setUp();
 
 
+  benpu::mVideoManager.run();
+
 
   benpu::mVideoManager.dismantle();
 
