@@ -6,7 +6,9 @@
 #include <boost/log/trivial.hpp>
 #include <memory>
 #include <set>
+#include <sys/types.h>
 #include <tuple>
+#include <vector>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_enums.hpp>
@@ -27,16 +29,19 @@ void VideoManager::setUp() {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create surface.";
   }
 
+  std::vector<const char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
   QueueFamilyIndices queueFamilyIndices;
-  if(pickPhysicalDevice(queueFamilyIndices) != StatusCode::success) {
+  if(pickPhysicalDevice(queueFamilyIndices, requiredExtensions) != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't pick a physical device.";
   }
 
-  if(createDevice(queueFamilyIndices) != StatusCode::success) {
-    BOOST_LOG_TRIVIAL(error) << "Couldn't pick a physical device.";
+  if(createDevice(queueFamilyIndices, requiredExtensions) != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create logical device.";
   }
-
   
+  if(createSwapChain(queueFamilyIndices) != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create swapchain.";
+  }
 
 }
 
@@ -94,6 +99,7 @@ StatusCode VideoManager::createInstance() {
   }
   return StatusCode::success;
 }
+
 StatusCode VideoManager::createSurface() {
   try {
     surface = window.createSurface(instance);
@@ -103,10 +109,120 @@ StatusCode VideoManager::createSurface() {
   }
   return StatusCode::success;
 }
-int VideoManager::getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& bestDeviceQueueFamilyIndices) {
+
+bool checkDeviceExtensionSupport(vk::PhysicalDevice device, const std::vector<const char*>& deviceExtensions) {
+    std::vector<vk::ExtensionProperties> availableExtension = device.enumerateDeviceExtensionProperties();
+
+    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+    for (const vk::ExtensionProperties& extension : availableExtension) {
+        requiredExtensions.erase(extension.extensionName);
+    }
+
+    return requiredExtensions.empty();
+}
+
+VideoManager::SwapChainSupportDetails VideoManager::querySwapChainSupport(vk::PhysicalDevice device) {
+  SwapChainSupportDetails details;
+  details.formats = device.getSurfaceFormatsKHR(surface);
+  details.presentModes = device.getSurfacePresentModesKHR(surface);
+  details.capabilities = device.getSurfaceCapabilitiesKHR(surface);
+  return details;
+
+}
+
+vk::SurfaceFormatKHR VideoManager::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats) {
+  for (const auto& availableFormat : availableFormats) {
+      if (availableFormat.format == vk::Format::eB8G8R8A8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+          return availableFormat;
+      }
+  }
+  return availableFormats[0];
+}
+
+vk::PresentModeKHR VideoManager::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes) {
+  for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
+            return availablePresentMode;
+        }
+    }
+    return vk::PresentModeKHR::eFifo;
+}
+
+vk::Extent2D VideoManager::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities){
+  if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+    return capabilities.currentExtent;
+  } else {
+    auto [width, height] = window.getFramebufferSize();
+
+    vk::Extent2D actualExtent = {static_cast<uint32_t>(width),
+                                static_cast<uint32_t>(height)};
+
+    actualExtent.width =
+        std::clamp(actualExtent.width, capabilities.minImageExtent.width,
+                    capabilities.maxImageExtent.width);
+    actualExtent.height =
+        std::clamp(actualExtent.height, capabilities.minImageExtent.height,
+                    capabilities.maxImageExtent.height);
+
+    return actualExtent;
+  }
+}
+
+StatusCode VideoManager::createSwapChain(QueueFamilyIndices& queueFamilyIndices) {
+  try {
+    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
+
+    vk::SurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+    vk::PresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+    vk::Extent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+    uint32_t imageCount = swapChainSupport.capabilities.minImageCount;
+    if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
+      imageCount = swapChainSupport.capabilities.maxImageCount;
+    }
+
+    uint32_t queueFamilyIndicesArray[] = {queueFamilyIndices.graphicsFamily.value(), queueFamilyIndices.presentFamily.value()};
+
+    vk::SwapchainCreateInfoKHR createInfo(
+      {},
+      surface,
+      imageCount,
+      surfaceFormat.format,
+      surfaceFormat.colorSpace,
+      extent,
+      1,
+      vk::ImageUsageFlagBits::eColorAttachment,
+      queueFamilyIndices.graphicsFamily == queueFamilyIndices.presentFamily 
+        ? vk::SharingMode::eExclusive
+        : vk::SharingMode::eConcurrent,
+      queueFamilyIndices.graphicsFamily == queueFamilyIndices.presentFamily
+        ? 0
+        : 2,
+      queueFamilyIndices.graphicsFamily == queueFamilyIndices.presentFamily
+        ? nullptr
+        : queueFamilyIndicesArray,
+        swapChainSupport.capabilities.currentTransform,
+        vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        presentMode,
+        vk::True
+    );
+    
+    swapchain = device.createSwapchainKHR(createInfo);
+
+  } catch (vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while Swapchain creation: " << e.what();
+    return StatusCode::swapchainreationError;
+
+  }
+  return StatusCode::success;
+}
+
+int VideoManager::getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& bestDeviceQueueFamilyIndices, const std::vector<const char*>& requiredExtensions) {
 
   int bestPhysicalDevicesIndex = -1;
   int bestScore = 0;
+
 
   for(int i = 0; i - physicalDevices.size(); ++i) {
     QueueFamilyIndices queueFamilyIndices;
@@ -117,11 +233,10 @@ int VideoManager::getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& p
 
     int score = 0;
     
-    // Consider the device type. Discrete GPUs get a higher score.
     if (deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
-        score += 1000; // Discrete GPU gets a high score
+        score += 1000;
     } else if (deviceProperties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu) {
-        score += 500; // Integrated GPU gets a moderate score
+        score += 500;
     }
     
     uint32_t apiVersion = deviceProperties.apiVersion;
@@ -153,9 +268,17 @@ int VideoManager::getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& p
     }
     
     if (!deviceFeatures.geometryShader
-      || !queueFamilyIndices.isComplete()) {
+      || !queueFamilyIndices.isComplete()
+      || !checkDeviceExtensionSupport(physicalDevices[i], requiredExtensions)) {
         //If it does support the queue families we need, we can't use it.
-        score = 0; 
+        score = 0;
+        continue; 
+    }
+
+    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevices[i]);
+
+    if (swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty()) {
+      score = 0;
     }
     
     if (score > bestScore) {
@@ -169,14 +292,16 @@ int VideoManager::getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& p
   return bestPhysicalDevicesIndex;
 }
 
-StatusCode VideoManager::pickPhysicalDevice(QueueFamilyIndices &queueFamilyIndices) {
+StatusCode VideoManager::pickPhysicalDevice(QueueFamilyIndices &queueFamilyIndices, const std::vector<const char*>& requiredExtensions) {
   auto availablePhysicalDevices = instance.enumeratePhysicalDevices();
 
   if (availablePhysicalDevices.size() == 0) {
     return StatusCode::noPhysicalDeviceFound;
   }
+
   int bestPhysicalDeviceIndex;
-  bestPhysicalDeviceIndex = getBestPhysicalDevice(availablePhysicalDevices, queueFamilyIndices);
+  bestPhysicalDeviceIndex = getBestPhysicalDevice(availablePhysicalDevices, queueFamilyIndices, requiredExtensions);
+
   if (bestPhysicalDeviceIndex == -1) {
     return StatusCode::noProprerPhysicalDeviceFound;
   }
@@ -222,7 +347,7 @@ StatusCode checkRequiredLayers(const std::vector<const char*> &requiredLayers) {
   return StatusCode::success;
 }
 
-StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices) {
+StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions) {
   try {
     float queuePriority = 1.0f;
 
@@ -248,14 +373,16 @@ StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices) {
       queueCreateInfos.data(),
       {},
       {},
-      {},
-      {},
+      static_cast<uint32_t>(requiredExtensions.size()),
+      requiredExtensions.data(),
       &deviceFeatures
     );
 
     device = physicalDevice.createDevice(deviceInfo);
+    
     device.getQueue(queueFamilyIndices.graphicsFamily.value(), 0, &queue);
     device.getQueue(queueFamilyIndices.presentFamily.value(), 0, &presentationQueue);
+
   } catch (vk::SystemError& e) {
     BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while Device creation: " << e.what();
     return StatusCode::deviceCreationError;
@@ -264,9 +391,11 @@ StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices) {
 }
 
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying swapchain.";
+  vkDestroySwapchainKHR(device, swapchain, nullptr);
   
   BOOST_LOG_TRIVIAL(info) << "Destroying surface.";
-  
   vkDestroySurfaceKHR(instance, surface, nullptr);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying device.";

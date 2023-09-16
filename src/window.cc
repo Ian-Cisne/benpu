@@ -30,6 +30,10 @@ namespace benpu {
     return vector;
   }
 
+  std::tuple<int, int> Window::getFramebufferSize() {
+    return window.getFramebufferSize();
+  }
+
   vk::SurfaceKHR Window::createSurface(vk::Instance& instance) {
     return vkfw::createWindowSurface(instance, window);
   }

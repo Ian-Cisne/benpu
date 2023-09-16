@@ -1,6 +1,7 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
+#include <tuple>
 #include <vector>
 #include "vkfw.hpp"
 #include <vulkan/vulkan_handles.hpp>
@@ -22,7 +23,7 @@ class Window {
   void pollEvents() { vkfw::pollEvents(); }
   std::vector<const char*> getRequiredVulkanExtensions();
   vk::SurfaceKHR createSurface(vk::Instance& instance);
-
+  std::tuple<int, int> getFramebufferSize();
 
 private:
   uint32_t width;

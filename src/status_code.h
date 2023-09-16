@@ -8,7 +8,8 @@ enum StatusCode: int {
     layerNotFound,
     noPhysicalDeviceFound,
     noProprerPhysicalDeviceFound,
-    deviceCreationError
+    deviceCreationError,
+    swapchainreationError
 };
 
 #endif

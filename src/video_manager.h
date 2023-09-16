@@ -6,7 +6,9 @@
 #include "window.h"
 #include <cstddef>
 #include <optional>
+#include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 
 namespace benpu {
@@ -33,6 +35,8 @@ private:
   vk::Queue queue = nullptr;
   vk::Queue presentationQueue = nullptr;
   vk::SurfaceKHR surface = nullptr;
+  vk::SwapchainKHR swapchain = nullptr;
+  std::vector<vk::Image> swapChainImages;
 
 private:
 
@@ -44,11 +48,23 @@ private:
 
   };
 
+  struct SwapChainSupportDetails {
+    vk::SurfaceCapabilitiesKHR capabilities;
+    std::vector<vk::SurfaceFormatKHR> formats;
+    std::vector<vk::PresentModeKHR> presentModes;
+  };
+
   StatusCode createInstance();
   StatusCode createSurface();
-  StatusCode pickPhysicalDevice(QueueFamilyIndices& queueFamilyIndices);
-  StatusCode createDevice(QueueFamilyIndices& queueFamilyIndices);
-  int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices);
+  StatusCode pickPhysicalDevice(QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
+  StatusCode createDevice(QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
+  SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
+  vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats);
+  vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes);
+  vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities);
+  StatusCode createSwapChain(QueueFamilyIndices& queueFamilyIndices);
+
+  int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
   
 };
 
