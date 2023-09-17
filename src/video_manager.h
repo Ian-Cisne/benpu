@@ -40,6 +40,14 @@ private:
   vk::Format swapChainImageFormat;
   vk::Extent2D swapChainExtent;
   std::vector<vk::ImageView> swapChainImageViews;
+  vk::ShaderModule fragShaderModule = nullptr;
+  vk::ShaderModule vertShaderModule = nullptr;
+  std::vector<vk::DynamicState> dynamicStates = {
+    vk::DynamicState::eViewport,
+    vk::DynamicState::eScissor
+  };
+  vk::PipelineLayout pipelineLayout = nullptr;
+
 
 
 private:
@@ -69,6 +77,7 @@ private:
   StatusCode createSwapChain(QueueFamilyIndices& queueFamilyIndices);
   StatusCode createImageViews();
   StatusCode createGraphicsPipeline();
+  StatusCode createShaderModule(const std::vector<char>& code, vk::ShaderModule& shaderModule);
 
   int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
   

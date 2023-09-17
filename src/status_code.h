@@ -10,7 +10,10 @@ enum StatusCode: int {
     noProprerPhysicalDeviceFound,
     imageViewsCreationError,
     deviceCreationError,
-    swapchainreationError
+    swapchainreationError,
+    fileCouldntBeOpened,
+    graphicsPipelineCreationError,
+    shaderModuleCreationError
 };
 
 #endif

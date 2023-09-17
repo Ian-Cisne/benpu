@@ -4,6 +4,7 @@
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
+#include <fstream>
 #include <memory>
 #include <set>
 #include <sys/types.h>
@@ -438,18 +439,198 @@ StatusCode VideoManager::createImageViews(){
   return StatusCode::success;
 }
 
+static StatusCode readFile(const std::string& filename, std::vector<char>& buffer) {
+  std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+  if (!file.is_open()) {
+    return StatusCode::fileCouldntBeOpened;
+  }
+
+  size_t fileSize = (size_t) file.tellg();
+  buffer.resize(fileSize);
+  file.seekg(0);
+  file.read(buffer.data(), fileSize);
+  file.close();
+
+  return StatusCode::success;
+}
+
+StatusCode VideoManager::createShaderModule(const std::vector<char>& code, vk::ShaderModule& shaderModule) {
+  try {
+
+    vk::ShaderModuleCreateInfo createInfo(
+      {},
+      code.size(),
+      reinterpret_cast<const uint32_t*>(code.data())
+    );
+
+    shaderModule = device.createShaderModule(createInfo);
+
+  } catch(vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while shader module creation: " << e.what();
+    return StatusCode::shaderModuleCreationError;
+  }
+
+  return StatusCode::success;
+}
+
+StatusCode VideoManager::createGraphicsPipeline() {
+  std::vector<char> vertShaderCode;
+  if (readFile("shaders/vert.spv", vertShaderCode) != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't open vertex shader.";
+    return StatusCode::graphicsPipelineCreationError;
+  }
+
+  std::vector<char> fragShaderCode;
+  if (readFile("shaders/vert.spv", fragShaderCode) != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't open fragment shader.";
+    return StatusCode::graphicsPipelineCreationError;
+  }
+
+  if (createShaderModule(vertShaderCode, vertShaderModule) != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create vertex shader module.";
+    return StatusCode::graphicsPipelineCreationError;
+  }
+
+  if (createShaderModule(fragShaderCode, fragShaderModule) != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create fragment shader module.";
+    return StatusCode::graphicsPipelineCreationError;
+  }
+
+  vk::PipelineShaderStageCreateInfo vertCreateInfo(
+    {},
+    vk::ShaderStageFlagBits::eVertex,
+    vertShaderModule,
+    "main"
+  );
+
+  vk::PipelineShaderStageCreateInfo fragCreateInfo(
+    {},
+    vk::ShaderStageFlagBits::eFragment,
+    fragShaderModule,
+    "main"
+  );
+  try {
+    vk::PipelineShaderStageCreateInfo shaderStages[] = {vertCreateInfo, fragCreateInfo};
+
+
+    vk::PipelineVertexInputStateCreateInfo vertStateCreateInfo(
+      {},
+      0,
+      nullptr,
+      0,
+      nullptr
+    );
+
+    vk::PipelineInputAssemblyStateCreateInfo inputAssembly(
+      {},
+      vk::PrimitiveTopology::eTriangleList,
+      vk::False
+    );
+
+    vk::Viewport viewport(
+      0.0f,
+      0.0f,
+      static_cast<float>(swapChainExtent.width),
+      static_cast<float>(swapChainExtent.height),
+      0.0f,
+      1.0f
+    );
+
+    vk::Rect2D scissor(
+      {0,0},
+      swapChainExtent
+    );
+
+    vk::PipelineDynamicStateCreateInfo dynamicState(
+      {},
+      static_cast<uint32_t>(dynamicStates.size()),
+      dynamicStates.data()
+    );
+
+    vk::PipelineViewportStateCreateInfo viewportState(
+      {},
+      1,
+      &viewport,
+      1,
+      &scissor
+    );
+
+    vk::PipelineRasterizationStateCreateInfo rasterizer(
+      {},
+      vk::False,
+      vk::False,
+      vk::PolygonMode::eFill,
+      vk::CullModeFlagBits::eBack,      
+      vk::FrontFace::eCounterClockwise,
+      vk::False,
+      0.0f,
+      0.0f,
+      0.0f,
+      1.0f
+    );
+    vk::PipelineMultisampleStateCreateInfo multisampling(
+      {},
+      vk::SampleCountFlagBits::e1,
+      vk::False,
+      1.0f,
+      nullptr,
+      vk::False,
+      vk::False);
+
+    vk::PipelineColorBlendAttachmentState colorBlendAttachment(
+      vk::False,
+      vk::BlendFactor::eOne,
+      vk::BlendFactor::eZero,
+      vk::BlendOp::eAdd,
+      vk::BlendFactor::eOne,
+      vk::BlendFactor::eZero,
+      vk::BlendOp::eAdd
+    );
+
+    vk::PipelineColorBlendStateCreateInfo colorBlending(
+      {},
+      vk::False,
+      vk::LogicOp::eCopy,
+      1,
+      &colorBlendAttachment,
+      {0.0f, 0.0f, 0.0f, 0.0f}
+    );
+    
+    vk::PipelineLayoutCreateInfo pipelineCreateInfo(
+      {},
+      0,
+      nullptr,
+      0,
+      nullptr
+    );
+
+  } catch (vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while graphics pipeline creation: " << e.what();
+    return StatusCode::shaderModuleCreationError;
+  }
+  return StatusCode::success;
+}
+
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying pipeline layout.";
+  device.destroyPipelineLayout(pipelineLayout);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying image views.";
   for (auto imageView : swapChainImageViews) {
-    vkDestroyImageView(device, imageView, nullptr);
+    device.destroyImageView(imageView);
   }
 
   BOOST_LOG_TRIVIAL(info) << "Destroying swapchain.";
-  vkDestroySwapchainKHR(device, swapchain, nullptr);
+  device.destroySwapchainKHR(swapchain);
   
   BOOST_LOG_TRIVIAL(info) << "Destroying surface.";
-  vkDestroySurfaceKHR(instance, surface, nullptr);
+  instance.destroySurfaceKHR(surface);
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying shader modules.";
+  device.destroyShaderModule(vertShaderModule);
+  device.destroyShaderModule(fragShaderModule);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying device.";
   device.destroy();
