@@ -30,24 +30,23 @@ include_directories(${GLM_INCLUDE_DIRS})
 find_package(glfw3 REQUIRED)
 include_directories(${GLFW_INCLUDE_DIRS})
 
-function(compile_shaders target)
-    cmake_parse_arguments(PARSE_ARGV 1 arg "" "ENV;FORMAT" "SOURCES")
-    foreach(source ${arg_SOURCES})
-        add_custom_command(
-            OUTPUT ${source}.${arg_FORMAT}
-            DEPENDS ${source}
-            DEPFILE ${source}.d
-            COMMAND
-                ${glslc_executable}
-                $<$<BOOL:${arg_ENV}>:--target-env=${arg_ENV}>
-                $<$<BOOL:${arg_FORMAT}>:-mfmt=${arg_FORMAT}>
-                -MD -MF ${source}.d
-                -o ${source}.${arg_FORMAT}
-                ${CMAKE_CURRENT_SOURCE_DIR}/${source}
-        )
-        target_sources(${target} PRIVATE ${source}.${arg_FORMAT})
-    endforeach()
-endfunction()
+file(GLOB SHADERS "src/shaders/*.vert" "src/shaders/*.frag")
+foreach(SHADER_FILE ${SHADERS})
+    get_filename_component(SHADER_NAME ${SHADER_FILE} NAME)
+    set(SPIRV_FILE "${CMAKE_BINARY_DIR}/shaders/${SHADER_NAME}.spv")
+    message(${SPIRV_FILE})
+    
+    add_custom_command(
+        OUTPUT ${SPIRV_FILE}
+        COMMAND glslc -o ${SPIRV_FILE} ${SHADER_FILE}
+        DEPENDS ${SHADER_FILE}
+        COMMENT "Compiling ${SHADER_NAME} to SPIR-V"
+    )
+    
+    list(APPEND SPIRV_FILES ${SPIRV_FILE})
+endforeach()
+
+add_custom_target(shaders DEPENDS ${SPIRV_FILES})
 
 include_directories(lib/vkfw)
 
@@ -70,3 +69,4 @@ target_link_libraries(benpu Vulkan::Vulkan)
 target_link_libraries(benpu glfw)
 target_link_libraries(benpu volk)
 
+add_dependencies(benpu shaders)

@@ -13,7 +13,8 @@ enum StatusCode: int {
     swapchainreationError,
     fileCouldntBeOpened,
     graphicsPipelineCreationError,
-    shaderModuleCreationError
+    shaderModuleCreationError,
+    renderPassCreationError
 };
 
 #endif

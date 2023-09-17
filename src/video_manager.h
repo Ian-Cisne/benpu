@@ -47,6 +47,7 @@ private:
     vk::DynamicState::eScissor
   };
   vk::PipelineLayout pipelineLayout = nullptr;
+  vk::RenderPass renderPass = nullptr;
 
 
 
@@ -78,6 +79,7 @@ private:
   StatusCode createImageViews();
   StatusCode createGraphicsPipeline();
   StatusCode createShaderModule(const std::vector<char>& code, vk::ShaderModule& shaderModule);
+  StatusCode createRenderPass();
 
   int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
   

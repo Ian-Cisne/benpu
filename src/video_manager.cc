@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <boost/log/core.hpp>
+#include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/trivial.hpp>
 #include <fstream>
 #include <memory>
@@ -47,10 +48,14 @@ void VideoManager::setUp() {
   if(createImageViews() != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create image views.";
   }
+
   if(createGraphicsPipeline() != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create graphics pipeline.";
   }
 
+  if(createRenderPass() != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create render pass.";
+  }
 
 }
 
@@ -180,6 +185,8 @@ vk::Extent2D VideoManager::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& ca
 
 StatusCode VideoManager::createSwapChain(QueueFamilyIndices& queueFamilyIndices) {
   try {
+    BOOST_LOG_TRIVIAL(info) << "Creating swapchain.";
+
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
     vk::SurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -212,16 +219,17 @@ StatusCode VideoManager::createSwapChain(QueueFamilyIndices& queueFamilyIndices)
         ? nullptr
         : queueFamilyIndicesArray,
         swapChainSupport.capabilities.currentTransform,
-        vk::CompositeAlphaFlagBitsKHR::ePostMultiplied,
-        //vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        vk::CompositeAlphaFlagBitsKHR::eInherit,
         presentMode,
         vk::True
     );
+
     if (queueFamilyIndices.graphicsFamily == queueFamilyIndices.presentFamily) {
       createInfo.setImageSharingMode(vk::SharingMode::eExclusive);
       createInfo.setQueueFamilyIndexCount(2);
       createInfo.setQueueFamilyIndices(queueFamilyIndicesArray);
     }
+
     swapchain = device.createSwapchainKHR(createInfo);
     swapChainImages = device.getSwapchainImagesKHR(swapchain);
     swapChainImageFormat = surfaceFormat.format;
@@ -366,6 +374,9 @@ StatusCode checkRequiredLayers(const std::vector<const char*> &requiredLayers) {
 
 StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions) {
   try {
+
+    BOOST_LOG_TRIVIAL(info) << "Creating logical device.";
+
     float queuePriority = 1.0f;
 
     vk::DeviceQueueCreateInfo queueInfo({},queueFamilyIndices.graphicsFamily.value(), 1, &queuePriority);
@@ -409,7 +420,11 @@ StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices, co
 
 StatusCode VideoManager::createImageViews(){
   try {
+
+    BOOST_LOG_TRIVIAL(info) << "Creating image views.";
+
     swapChainImageViews.resize(swapChainImages.size());
+
     for (size_t i = 0; i < swapChainImages.size(); i++) {
       vk::ImageViewCreateInfo createInfo(
         {},
@@ -474,15 +489,67 @@ StatusCode VideoManager::createShaderModule(const std::vector<char>& code, vk::S
   return StatusCode::success;
 }
 
+StatusCode VideoManager::createRenderPass() {
+  
+  BOOST_LOG_TRIVIAL(info) << "Creating render pass.";
+
+  vk::AttachmentDescription colorAttachment(
+    {},
+    swapChainImageFormat,
+    vk::SampleCountFlagBits::e1,
+    vk::AttachmentLoadOp::eClear,
+    vk::AttachmentStoreOp::eStore,
+    vk::AttachmentLoadOp::eDontCare,
+    vk::AttachmentStoreOp::eDontCare,
+    vk::ImageLayout::eUndefined,
+    vk::ImageLayout::ePresentSrcKHR
+  );
+
+  vk::AttachmentReference colorAttachmentRef(
+    0,
+    vk::ImageLayout::eColorAttachmentOptimal
+  );
+
+  vk::SubpassDescription subpass(
+    {},
+    vk::PipelineBindPoint::eGraphics,
+    0,
+    nullptr,
+    1,
+    &colorAttachmentRef
+  );
+
+  vk::RenderPassCreateInfo createInfo(
+    {},
+    1,
+    &colorAttachment,
+    1,
+    &subpass
+  );
+
+  try {
+    renderPass = device.createRenderPass(createInfo);
+  
+  } catch (vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while render pass creation: " << e.what();
+    return StatusCode::renderPassCreationError;
+  }
+
+  return StatusCode::success;
+}
+
 StatusCode VideoManager::createGraphicsPipeline() {
+
+  BOOST_LOG_TRIVIAL(info) << "Creating graphics pipeline.";
+
   std::vector<char> vertShaderCode;
-  if (readFile("shaders/vert.spv", vertShaderCode) != StatusCode::success) {
+  if (readFile("shaders/first.vert.spv", vertShaderCode) != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't open vertex shader.";
     return StatusCode::graphicsPipelineCreationError;
   }
 
   std::vector<char> fragShaderCode;
-  if (readFile("shaders/vert.spv", fragShaderCode) != StatusCode::success) {
+  if (readFile("shaders/first.frag.spv", fragShaderCode) != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't open fragment shader.";
     return StatusCode::graphicsPipelineCreationError;
   }
@@ -510,9 +577,9 @@ StatusCode VideoManager::createGraphicsPipeline() {
     fragShaderModule,
     "main"
   );
+
   try {
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertCreateInfo, fragCreateInfo};
-
 
     vk::PipelineVertexInputStateCreateInfo vertStateCreateInfo(
       {},
@@ -569,6 +636,7 @@ StatusCode VideoManager::createGraphicsPipeline() {
       0.0f,
       1.0f
     );
+
     vk::PipelineMultisampleStateCreateInfo multisampling(
       {},
       vk::SampleCountFlagBits::e1,
@@ -613,6 +681,12 @@ StatusCode VideoManager::createGraphicsPipeline() {
 }
 
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying pipeline layout.";
+  device.destroyPipelineLayout(pipelineLayout);
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying render pass.";
+  device.destroyRenderPass(renderPass);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying pipeline layout.";
   device.destroyPipelineLayout(pipelineLayout);

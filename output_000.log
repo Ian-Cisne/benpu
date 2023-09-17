@@ -1,8 +1,6 @@
-[2023-09-12 13:28:03.907284][info]:  Creating application info.
-[2023-09-12 13:28:03.907666][info]:  Created application info.
-[2023-09-12 13:28:03.988133][info]:  Checking required Extensions.
-[2023-09-12 13:28:03.988383][info]:  Checking required layers.
-[2023-09-12 13:28:03.989683][info]:  Creating instance info.
-[2023-09-12 13:28:03.989705][info]:  Creating instance.
-[2023-09-12 13:28:22.073765][error]:  Vulkan error ocurred while Swapchain creation: vk::Device::createSwapchainKHR: ErrorOutOfDeviceMemory
-[2023-09-12 13:28:22.073840][error]:  Couldn't create swapchain.
+[2023-09-17 14:48:10.654113][info]:  Creating application info.
+[2023-09-17 14:48:10.655142][info]:  Created application info.
+[2023-09-17 14:48:10.751796][info]:  Checking required Extensions.
+[2023-09-17 14:48:10.752470][info]:  Checking required layers.
+[2023-09-17 14:48:10.755896][info]:  Creating instance info.
+[2023-09-17 14:48:10.756396][info]:  Creating instance.
