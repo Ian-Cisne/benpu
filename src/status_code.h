@@ -14,7 +14,9 @@ enum StatusCode: int {
     fileCouldntBeOpened,
     graphicsPipelineCreationError,
     shaderModuleCreationError,
-    renderPassCreationError
+    renderPassCreationError,
+    frameBufferCreationError,
+    commandPoolCreationError
 };
 
 #endif

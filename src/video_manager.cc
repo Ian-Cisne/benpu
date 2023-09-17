@@ -34,7 +34,9 @@ void VideoManager::setUp() {
   }
 
   std::vector<const char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
   QueueFamilyIndices queueFamilyIndices;
+
   if(pickPhysicalDevice(queueFamilyIndices, requiredExtensions) != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't pick a physical device.";
   }
@@ -59,6 +61,13 @@ void VideoManager::setUp() {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create render pass.";
   }
 
+  if(createFramebuffers() != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create framebuffers.";
+  }
+
+  if(createCommandPool(queueFamilyIndices) != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create command pool.";
+  }
 }
 
 void VideoManager::run() {
@@ -711,8 +720,11 @@ StatusCode VideoManager::createGraphicsPipeline() {
 }
 
 StatusCode VideoManager::createFramebuffers() {
+
   BOOST_LOG_TRIVIAL(info) << "Creating framebuffers.";
+
   swapChainFramebuffers.resize(swapChainImageViews.size());
+
   try {
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
       vk::ImageView attachments[] = {
@@ -732,19 +744,46 @@ StatusCode VideoManager::createFramebuffers() {
       
       if (device.createFramebuffer(&framebufferInfo, nullptr, &swapChainFramebuffers[i]) != vk::Result::eSuccess) {
         BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while framebuffer number " + std::to_string(i) + ".";
-        return StatusCode::shaderModuleCreationError;
+        return StatusCode::frameBufferCreationError;
       }
     }
 
   } catch (vk::SystemError& e) {
     BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while framebuffers creation: " << e.what();
-    return StatusCode::shaderModuleCreationError;
+    return StatusCode::frameBufferCreationError;
+  }
+
+  return StatusCode::success;
+}
+
+StatusCode VideoManager::createCommandPool(QueueFamilyIndices& queueFamilyIndices) {
+
+  BOOST_LOG_TRIVIAL(info) << "Creating command pool.";
+
+  vk::CommandPoolCreateInfo poolInfo(
+    {vk::CommandPoolCreateFlagBits::eResetCommandBuffer},
+    queueFamilyIndices.graphicsFamily.value()
+  );
+
+  try {
+    
+    if (device.createCommandPool(&poolInfo, nullptr, &commandPool) != vk::Result::eSuccess) {
+      BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while command pool creation.";
+      return StatusCode::commandPoolCreationError;
+    }
+
+  } catch (vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while command pool creation: " << e.what();
+    return StatusCode::commandPoolCreationError;
   }
 
   return StatusCode::success;
 }
 
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying command pool.";
+  device.destroyCommandPool(commandPool);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying framebuffers.";
   for (auto framebuffer : swapChainFramebuffers) {

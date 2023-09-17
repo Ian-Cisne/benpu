@@ -50,7 +50,8 @@ private:
   vk::RenderPass renderPass = nullptr;
   vk::Pipeline graphicsPipeline = nullptr;
   std::vector<vk::Framebuffer> swapChainFramebuffers;
-
+  vk::CommandPool commandPool;
+  vk::CommandBuffer commandBuffer;
 
 private:
 
@@ -82,6 +83,8 @@ private:
   StatusCode createShaderModule(const std::vector<char>& code, vk::ShaderModule& shaderModule);
   StatusCode createRenderPass();
   StatusCode createFramebuffers();
+  StatusCode createCommandPool(QueueFamilyIndices& queueFamilyIndices);
+  StatusCode createCommandBuffer();
 
   int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
   
