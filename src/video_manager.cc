@@ -5,6 +5,7 @@
 #include <boost/log/core.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/trivial.hpp>
+#include <cstddef>
 #include <fstream>
 #include <memory>
 #include <set>
@@ -673,6 +674,34 @@ StatusCode VideoManager::createGraphicsPipeline() {
       nullptr
     );
 
+    vk::GraphicsPipelineCreateInfo createInfo(
+      {},
+      2,
+      shaderStages,
+      &vertStateCreateInfo,
+      &inputAssembly,
+      nullptr,
+      &viewportState,
+      &rasterizer,
+      &multisampling,
+      nullptr,
+      &colorBlending,
+      &dynamicState,
+      pipelineLayout,
+      renderPass,
+      0,
+      nullptr,
+      -1
+    );
+
+    auto [resultPipelineCreation, pipeline] = device.createGraphicsPipeline(nullptr, createInfo);
+    graphicsPipeline = pipeline;
+
+    if (resultPipelineCreation != vk::Result::eSuccess) {
+      BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while graphics pipeline creation.";
+      return StatusCode::shaderModuleCreationError;
+    }
+
   } catch (vk::SystemError& e) {
     BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while graphics pipeline creation: " << e.what();
     return StatusCode::shaderModuleCreationError;
@@ -681,6 +710,9 @@ StatusCode VideoManager::createGraphicsPipeline() {
 }
 
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying pipeline.";
+  device.destroyPipeline(graphicsPipeline);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying pipeline layout.";
   device.destroyPipelineLayout(pipelineLayout);

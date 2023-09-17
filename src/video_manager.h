@@ -48,6 +48,7 @@ private:
   };
   vk::PipelineLayout pipelineLayout = nullptr;
   vk::RenderPass renderPass = nullptr;
+  vk::Pipeline graphicsPipeline = nullptr;
 
 
 
