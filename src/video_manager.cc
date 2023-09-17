@@ -9,6 +9,7 @@
 #include <fstream>
 #include <memory>
 #include <set>
+#include <string>
 #include <sys/types.h>
 #include <tuple>
 #include <vector>
@@ -709,7 +710,46 @@ StatusCode VideoManager::createGraphicsPipeline() {
   return StatusCode::success;
 }
 
+StatusCode VideoManager::createFramebuffers() {
+  BOOST_LOG_TRIVIAL(info) << "Creating framebuffers.";
+  swapChainFramebuffers.resize(swapChainImageViews.size());
+  try {
+    for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+      vk::ImageView attachments[] = {
+        swapChainImageViews[i]
+      };
+
+      vk::FramebufferCreateInfo framebufferInfo(
+        {},
+        renderPass,
+        1,
+        attachments,
+        swapChainExtent.width,
+        swapChainExtent.height,
+        1
+
+      );
+      
+      if (device.createFramebuffer(&framebufferInfo, nullptr, &swapChainFramebuffers[i]) != vk::Result::eSuccess) {
+        BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while framebuffer number " + std::to_string(i) + ".";
+        return StatusCode::shaderModuleCreationError;
+      }
+    }
+
+  } catch (vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while framebuffers creation: " << e.what();
+    return StatusCode::shaderModuleCreationError;
+  }
+
+  return StatusCode::success;
+}
+
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying framebuffers.";
+  for (auto framebuffer : swapChainFramebuffers) {
+    device.destroyFramebuffer(framebuffer);
+  }
 
   BOOST_LOG_TRIVIAL(info) << "Destroying pipeline.";
   device.destroyPipeline(graphicsPipeline);

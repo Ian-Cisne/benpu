@@ -49,7 +49,7 @@ private:
   vk::PipelineLayout pipelineLayout = nullptr;
   vk::RenderPass renderPass = nullptr;
   vk::Pipeline graphicsPipeline = nullptr;
-
+  std::vector<vk::Framebuffer> swapChainFramebuffers;
 
 
 private:
@@ -81,6 +81,7 @@ private:
   StatusCode createGraphicsPipeline();
   StatusCode createShaderModule(const std::vector<char>& code, vk::ShaderModule& shaderModule);
   StatusCode createRenderPass();
+  StatusCode createFramebuffers();
 
   int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
   
