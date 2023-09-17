@@ -6,10 +6,15 @@ namespace benpu {
 
   Window::Window(uint32_t width, uint32_t height): width{width}, height(height){
     vkfw::init();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+    vkfw::WindowHints hints;
+    hints.clientAPI = vkfw::ClientAPI::eNone;
+    hints.transparentFramebuffer = true;
     //for now it won't be resizable
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    window = vkfw::createWindow(width, height, "Benpu");
+    hints.resizable = false;
+    hints.alphaBits = true;
+    hints.decorated = false;
+    window = vkfw::createWindow(width, height, "Benpu", hints);
   }
 
   Window::~Window() {

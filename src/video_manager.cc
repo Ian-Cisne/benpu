@@ -42,6 +42,14 @@ void VideoManager::setUp() {
   if(createSwapChain(queueFamilyIndices) != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create swapchain.";
   }
+  
+  if(createImageViews() != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create image views.";
+  }
+  if(createGraphicsPipeline() != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create graphics pipeline.";
+  }
+
 
 }
 
@@ -203,12 +211,20 @@ StatusCode VideoManager::createSwapChain(QueueFamilyIndices& queueFamilyIndices)
         ? nullptr
         : queueFamilyIndicesArray,
         swapChainSupport.capabilities.currentTransform,
-        vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        vk::CompositeAlphaFlagBitsKHR::ePostMultiplied,
+        //vk::CompositeAlphaFlagBitsKHR::eOpaque,
         presentMode,
         vk::True
     );
-    
+    if (queueFamilyIndices.graphicsFamily == queueFamilyIndices.presentFamily) {
+      createInfo.setImageSharingMode(vk::SharingMode::eExclusive);
+      createInfo.setQueueFamilyIndexCount(2);
+      createInfo.setQueueFamilyIndices(queueFamilyIndicesArray);
+    }
     swapchain = device.createSwapchainKHR(createInfo);
+    swapChainImages = device.getSwapchainImagesKHR(swapchain);
+    swapChainImageFormat = surfaceFormat.format;
+    swapChainExtent = extent;
 
   } catch (vk::SystemError& e) {
     BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while Swapchain creation: " << e.what();
@@ -390,7 +406,44 @@ StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices, co
   return StatusCode::success;
 }
 
+StatusCode VideoManager::createImageViews(){
+  try {
+    swapChainImageViews.resize(swapChainImages.size());
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+      vk::ImageViewCreateInfo createInfo(
+        {},
+        swapChainImages[i],
+        vk::ImageViewType::e2D,
+        swapChainImageFormat,
+        vk::ComponentMapping(
+            vk::ComponentSwizzle::eIdentity,
+          vk::ComponentSwizzle::eIdentity,
+          vk::ComponentSwizzle::eIdentity
+          ),
+        vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor,
+            0,
+            1,
+            0,
+            1
+          )
+      );
+      swapChainImageViews[i] = device.createImageView(createInfo);
+    }
+
+  } catch(vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while Device creation: " << e.what();
+    return StatusCode::imageViewsCreationError;
+  }
+  return StatusCode::success;
+}
+
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying image views.";
+  for (auto imageView : swapChainImageViews) {
+    vkDestroyImageView(device, imageView, nullptr);
+  }
 
   BOOST_LOG_TRIVIAL(info) << "Destroying swapchain.";
   vkDestroySwapchainKHR(device, swapchain, nullptr);

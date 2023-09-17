@@ -37,6 +37,10 @@ private:
   vk::SurfaceKHR surface = nullptr;
   vk::SwapchainKHR swapchain = nullptr;
   std::vector<vk::Image> swapChainImages;
+  vk::Format swapChainImageFormat;
+  vk::Extent2D swapChainExtent;
+  std::vector<vk::ImageView> swapChainImageViews;
+
 
 private:
 
@@ -63,6 +67,8 @@ private:
   vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes);
   vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities);
   StatusCode createSwapChain(QueueFamilyIndices& queueFamilyIndices);
+  StatusCode createImageViews();
+  StatusCode createGraphicsPipeline();
 
   int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
   
