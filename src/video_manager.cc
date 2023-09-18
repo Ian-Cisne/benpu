@@ -6,7 +6,9 @@
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/trivial.hpp>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <set>
 #include <string>
@@ -53,12 +55,12 @@ void VideoManager::setUp() {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create image views.";
   }
 
-  if(createGraphicsPipeline() != StatusCode::success) {
-    BOOST_LOG_TRIVIAL(error) << "Couldn't create graphics pipeline.";
-  }
-
   if(createRenderPass() != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create render pass.";
+  }
+
+  if(createGraphicsPipeline() != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create graphics pipeline.";
   }
 
   if(createFramebuffers() != StatusCode::success) {
@@ -68,12 +70,22 @@ void VideoManager::setUp() {
   if(createCommandPool(queueFamilyIndices) != StatusCode::success) {
     BOOST_LOG_TRIVIAL(error) << "Couldn't create command pool.";
   }
+
+  if(createCommandBuffer() != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create command buffer.";
+  }
+
+  if(createSyncObjects() != StatusCode::success) {
+    BOOST_LOG_TRIVIAL(error) << "Couldn't create synchronization objects.";
+  }
 }
 
 void VideoManager::run() {
   while (!window.shouldClose()) {
     window.pollEvents();
+    drawFrame();
   }
+  device.waitIdle();
 }
 
 StatusCode VideoManager::createInstance() {
@@ -209,6 +221,9 @@ StatusCode VideoManager::createSwapChain(QueueFamilyIndices& queueFamilyIndices)
       imageCount = swapChainSupport.capabilities.maxImageCount;
     }
 
+    if(!(swapChainSupport.capabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::ePostMultiplied)) {
+      BOOST_LOG_TRIVIAL(info) << "swapChain doesn't support ePostMultipied.";
+    }
     uint32_t queueFamilyIndicesArray[] = {queueFamilyIndices.graphicsFamily.value(), queueFamilyIndices.presentFamily.value()};
 
     vk::SwapchainCreateInfoKHR createInfo(
@@ -529,15 +544,26 @@ StatusCode VideoManager::createRenderPass() {
     1,
     &colorAttachmentRef
   );
+  
+  vk::SubpassDependency dependency(
+    vk::SubpassExternal,
+    0,
+    (vk::PipelineStageFlagBits::eColorAttachmentOutput),
+    (vk::PipelineStageFlagBits::eColorAttachmentOutput),
+    vk::AccessFlagBits::eNone,
+    vk::AccessFlagBits::eNone
+  );
 
   vk::RenderPassCreateInfo createInfo(
     {},
     1,
     &colorAttachment,
     1,
-    &subpass
+    &subpass,
+    1,
+    &dependency
   );
-
+  
   try {
     renderPass = device.createRenderPass(createInfo);
   
@@ -575,24 +601,26 @@ StatusCode VideoManager::createGraphicsPipeline() {
     return StatusCode::graphicsPipelineCreationError;
   }
 
-  vk::PipelineShaderStageCreateInfo vertCreateInfo(
-    {},
-    vk::ShaderStageFlagBits::eVertex,
-    vertShaderModule,
-    "main"
-  );
+  
 
-  vk::PipelineShaderStageCreateInfo fragCreateInfo(
-    {},
-    vk::ShaderStageFlagBits::eFragment,
-    fragShaderModule,
-    "main"
-  );
-
+  
   try {
-    vk::PipelineShaderStageCreateInfo shaderStages[] = {vertCreateInfo, fragCreateInfo};
+    vk::PipelineShaderStageCreateInfo shaderStages[] = {
+      vk::PipelineShaderStageCreateInfo(
+        {},
+        vk::ShaderStageFlagBits::eVertex,
+        vertShaderModule,
+        "main"
+      ), 
+      vk::PipelineShaderStageCreateInfo(
+        {},
+        vk::ShaderStageFlagBits::eFragment,
+        fragShaderModule,
+        "main"
+      )
+    };
 
-    vk::PipelineVertexInputStateCreateInfo vertStateCreateInfo(
+    vk::PipelineVertexInputStateCreateInfo vertInputInfo(
       {},
       0,
       nullptr,
@@ -606,32 +634,12 @@ StatusCode VideoManager::createGraphicsPipeline() {
       vk::False
     );
 
-    vk::Viewport viewport(
-      0.0f,
-      0.0f,
-      static_cast<float>(swapChainExtent.width),
-      static_cast<float>(swapChainExtent.height),
-      0.0f,
-      1.0f
-    );
-
-    vk::Rect2D scissor(
-      {0,0},
-      swapChainExtent
-    );
-
-    vk::PipelineDynamicStateCreateInfo dynamicState(
-      {},
-      static_cast<uint32_t>(dynamicStates.size()),
-      dynamicStates.data()
-    );
-
     vk::PipelineViewportStateCreateInfo viewportState(
       {},
       1,
-      &viewport,
+      nullptr,
       1,
-      &scissor
+      nullptr
     );
 
     vk::PipelineRasterizationStateCreateInfo rasterizer(
@@ -640,31 +648,29 @@ StatusCode VideoManager::createGraphicsPipeline() {
       vk::False,
       vk::PolygonMode::eFill,
       vk::CullModeFlagBits::eBack,      
-      vk::FrontFace::eCounterClockwise,
+      vk::FrontFace::eClockwise,
       vk::False,
-      0.0f,
-      0.0f,
-      0.0f,
+      {},
+      {},
+      {},
       1.0f
     );
 
     vk::PipelineMultisampleStateCreateInfo multisampling(
       {},
       vk::SampleCountFlagBits::e1,
-      vk::False,
-      1.0f,
-      nullptr,
-      vk::False,
-      vk::False);
+      vk::False
+    );
 
     vk::PipelineColorBlendAttachmentState colorBlendAttachment(
-      vk::False,
-      vk::BlendFactor::eOne,
-      vk::BlendFactor::eZero,
+      vk::True,
+      vk::BlendFactor::eSrcAlpha,
+      vk::BlendFactor::eOneMinusSrcAlpha,
       vk::BlendOp::eAdd,
       vk::BlendFactor::eOne,
       vk::BlendFactor::eZero,
-      vk::BlendOp::eAdd
+      vk::BlendOp::eAdd,
+      vk::ColorComponentFlagBits::eR |vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
     );
 
     vk::PipelineColorBlendStateCreateInfo colorBlending(
@@ -675,8 +681,20 @@ StatusCode VideoManager::createGraphicsPipeline() {
       &colorBlendAttachment,
       {0.0f, 0.0f, 0.0f, 0.0f}
     );
+
+    std::vector<vk::DynamicState> dynamicStates = {
+      vk::DynamicState::eViewport,
+      vk::DynamicState::eScissor,
+      vk::DynamicState::eLineWidth
+    };
+
+    vk::PipelineDynamicStateCreateInfo dynamicState(
+      {},
+      static_cast<uint32_t>(dynamicStates.size()),
+      dynamicStates.data()
+    );
     
-    vk::PipelineLayoutCreateInfo pipelineCreateInfo(
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
       {},
       0,
       nullptr,
@@ -684,11 +702,17 @@ StatusCode VideoManager::createGraphicsPipeline() {
       nullptr
     );
 
+
+    if (device.createPipelineLayout(&pipelineLayoutInfo, nullptr, &pipelineLayout) != vk::Result::eSuccess) {
+      BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while pipeline layout creation.";
+      return StatusCode::shaderModuleCreationError;
+    }
+
     vk::GraphicsPipelineCreateInfo createInfo(
       {},
       2,
       shaderStages,
-      &vertStateCreateInfo,
+      &vertInputInfo,
       &inputAssembly,
       nullptr,
       &viewportState,
@@ -700,8 +724,7 @@ StatusCode VideoManager::createGraphicsPipeline() {
       pipelineLayout,
       renderPass,
       0,
-      nullptr,
-      -1
+      nullptr
     );
 
     auto [resultPipelineCreation, pipeline] = device.createGraphicsPipeline(nullptr, createInfo);
@@ -766,7 +789,7 @@ StatusCode VideoManager::createCommandPool(QueueFamilyIndices& queueFamilyIndice
   );
 
   try {
-    
+
     if (device.createCommandPool(&poolInfo, nullptr, &commandPool) != vk::Result::eSuccess) {
       BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while command pool creation.";
       return StatusCode::commandPoolCreationError;
@@ -780,7 +803,177 @@ StatusCode VideoManager::createCommandPool(QueueFamilyIndices& queueFamilyIndice
   return StatusCode::success;
 }
 
+
+StatusCode VideoManager::createCommandBuffer() {
+
+  BOOST_LOG_TRIVIAL(info) << "Creating command buffer.";
+
+  vk::CommandBufferAllocateInfo allocInfo(
+    commandPool,
+    vk::CommandBufferLevel::ePrimary,
+    1
+  );
+
+  try {
+    
+    if (device.allocateCommandBuffers(&allocInfo, &commandBuffer) != vk::Result::eSuccess) {
+      BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while command buffer creation.";
+      return StatusCode::commandBufferCreationError;
+    }
+
+  } catch (vk::SystemError& e) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while command buffer creation: " << e.what();
+    return StatusCode::commandBufferCreationError;
+  }
+
+  return StatusCode::success;
+}
+
+StatusCode VideoManager::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex) {
+
+  vk::CommandBufferBeginInfo beginInfo(
+    {},
+    nullptr
+  );
+
+  if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while command buffer record.";
+    return StatusCode::commandBufferRecordError;
+  }
+  
+  vk::ClearValue clearColor = {{0.0f, 0.0f, 0.0f, 0.0f}};
+  
+  vk::ImageSubresourceRange range (
+    vk::ImageAspectFlagBits::eColor,
+    0,
+    1,
+    0,
+    1
+  );
+
+  vk::RenderPassBeginInfo renderPassInfo(
+    renderPass,
+    swapChainFramebuffers[imageIndex],
+    {
+      {
+        0,
+        0
+      },
+      swapChainExtent
+    },
+    1,
+    &clearColor
+  );
+  commandBuffer.beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+  
+  vk::Viewport viewport(
+    0.0f,
+    0.0f,
+    static_cast<float>(swapChainExtent.width),
+    static_cast<float>(swapChainExtent.height),
+    0.0f,
+    1.0f
+  );
+
+  commandBuffer.setViewport(0, 1, &viewport);
+
+  vk::Rect2D scissor(
+    {0,0},
+    swapChainExtent
+  );
+
+  commandBuffer.setScissor(0, 1, &scissor);
+
+  commandBuffer.draw(3, 1, 0, 0);
+
+  commandBuffer.endRenderPass();
+
+  commandBuffer.end();
+
+  return StatusCode::success;
+}
+
+StatusCode VideoManager::createSyncObjects() {
+
+  BOOST_LOG_TRIVIAL(info) << "Creating synchronization objects.";
+
+  vk::SemaphoreCreateInfo sCreateInfo;
+  
+  if (device.createSemaphore(&sCreateInfo, nullptr, &imageAvailableSemaphore) != vk::Result::eSuccess) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while image semaphore creation.";
+    return StatusCode::semaphoreCreationError;
+  }
+  
+  if (device.createSemaphore(&sCreateInfo, nullptr, &renderFinishedSemaphore) != vk::Result::eSuccess) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while render semaphore creation.";
+    return StatusCode::semaphoreCreationError;
+  }
+
+  vk::FenceCreateInfo fCreateInfo(
+    (
+      vk::FenceCreateFlagBits::eSignaled
+    )
+  );
+  
+  if (device.createFence(&fCreateInfo, nullptr, &inFlightFence) != vk::Result::eSuccess) {
+    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while fence creation.";
+    return StatusCode::fenceCreationError;
+  }
+
+  return StatusCode::success;
+}
+
+void VideoManager::drawFrame() {
+  device.waitForFences(1, &inFlightFence, vk::True, std::numeric_limits<uint64_t>::max());
+  device.resetFences(1, &inFlightFence);
+  uint32_t imageIndex;
+  device.acquireNextImageKHR(swapchain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, nullptr, &imageIndex);
+  commandBuffer.reset();
+  recordCommandBuffer(commandBuffer,imageIndex);
+
+  vk::Semaphore waitSemaphores[] = {imageAvailableSemaphore};
+  vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+
+  vk::Semaphore signalSemaphores[] = {renderFinishedSemaphore};
+
+  vk::SubmitInfo submitInfo(
+    1,
+    waitSemaphores,
+    waitStages,
+    1,
+    &commandBuffer,
+    1,
+    signalSemaphores
+  );
+
+  if (queue.submit(1, &submitInfo, inFlightFence) != vk::Result::eSuccess) {
+    BOOST_LOG_TRIVIAL(error) << "couldnt submit queue";
+  }
+
+  vk::SwapchainKHR swapChains[] = {swapchain};
+
+  vk::PresentInfoKHR presentInfo(
+    1,
+    signalSemaphores,
+    1,
+    swapChains,
+    &imageIndex,
+    nullptr
+  );
+
+  presentationQueue.presentKHR(presentInfo);
+
+}
+
 void VideoManager::dismantle() {
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying fence.";
+  device.destroyFence(inFlightFence);
+
+  BOOST_LOG_TRIVIAL(info) << "Destroying semaphores.";
+  device.destroySemaphore(imageAvailableSemaphore);
+  device.destroySemaphore(renderFinishedSemaphore);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying command pool.";
   device.destroyCommandPool(commandPool);
@@ -798,9 +991,6 @@ void VideoManager::dismantle() {
 
   BOOST_LOG_TRIVIAL(info) << "Destroying render pass.";
   device.destroyRenderPass(renderPass);
-
-  BOOST_LOG_TRIVIAL(info) << "Destroying pipeline layout.";
-  device.destroyPipelineLayout(pipelineLayout);
 
   BOOST_LOG_TRIVIAL(info) << "Destroying image views.";
   for (auto imageView : swapChainImageViews) {

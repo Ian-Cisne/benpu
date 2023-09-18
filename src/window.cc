@@ -9,29 +9,29 @@ namespace benpu {
 
     vkfw::WindowHints hints;
     hints.clientAPI = vkfw::ClientAPI::eNone;
-    hints.transparentFramebuffer = true;
     //for now it won't be resizable
     hints.resizable = false;
-    hints.alphaBits = true;
-    hints.decorated = false;
+
     window = vkfw::createWindow(width, height, "Benpu", hints);
   }
 
   Window::~Window() {
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    window.destroy();
+    vkfw::terminate();
   }
 
   std::vector<const char*> Window::getRequiredVulkanExtensions() {
+    
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions;
 
-    glfwExtensions = vkfw::getRequiredInstanceExtensions(&glfwExtensionCount);//glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    glfwExtensions = vkfw::getRequiredInstanceExtensions(&glfwExtensionCount);
     std::vector< const char*> vector(glfwExtensionCount);
 
     for (size_t i = 0; i < glfwExtensionCount; ++i) {
         vector[i] = glfwExtensions[i];
     }
+
     return vector;
   }
 

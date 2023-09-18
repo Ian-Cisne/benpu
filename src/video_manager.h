@@ -42,16 +42,15 @@ private:
   std::vector<vk::ImageView> swapChainImageViews;
   vk::ShaderModule fragShaderModule = nullptr;
   vk::ShaderModule vertShaderModule = nullptr;
-  std::vector<vk::DynamicState> dynamicStates = {
-    vk::DynamicState::eViewport,
-    vk::DynamicState::eScissor
-  };
   vk::PipelineLayout pipelineLayout = nullptr;
   vk::RenderPass renderPass = nullptr;
   vk::Pipeline graphicsPipeline = nullptr;
   std::vector<vk::Framebuffer> swapChainFramebuffers;
   vk::CommandPool commandPool;
   vk::CommandBuffer commandBuffer;
+  vk::Semaphore imageAvailableSemaphore;
+  vk::Semaphore renderFinishedSemaphore;
+  vk::Fence inFlightFence;
 
 private:
 
@@ -85,6 +84,9 @@ private:
   StatusCode createFramebuffers();
   StatusCode createCommandPool(QueueFamilyIndices& queueFamilyIndices);
   StatusCode createCommandBuffer();
+  StatusCode recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
+  StatusCode createSyncObjects();
+  void drawFrame();
 
   int getBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& physicalDevices, VideoManager::QueueFamilyIndices& queueFamilyIndices, const std::vector<const char*>& requiredExtensions);
   

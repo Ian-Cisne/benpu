@@ -16,7 +16,11 @@ enum StatusCode: int {
     shaderModuleCreationError,
     renderPassCreationError,
     frameBufferCreationError,
-    commandPoolCreationError
+    commandPoolCreationError,
+    commandBufferCreationError,
+    commandBufferRecordError,
+    semaphoreCreationError,
+    fenceCreationError
 };
 
 #endif

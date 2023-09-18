@@ -44,6 +44,7 @@ int main() {
 
   benpu::mVideoManager.setUp();
 
+  BOOST_LOG_TRIVIAL(info) << "Video setted up.";
 
   benpu::mVideoManager.run();
 
