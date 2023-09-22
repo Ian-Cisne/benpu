@@ -1,22 +1,24 @@
-#ifndef VIDEO_MANAGER_H
-#define VIDEO_MANAGER_H
+#ifndef BENPU_VIDEO_MANAGER_H_
+#define BENPU_VIDEO_MANAGER_H_
 
-#include "configuration.h"
-#include "status_code.h"
-#include "window.h"
 #include <cstddef>
 #include <optional>
+
+#include "core/utils/configuration.h"
+#include "status_code.h"
+#include "window.h"
+
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
-
 
 namespace benpu {
 
 class VideoManager {
 
- public:   
-   VideoManager(): window(800, 600) {}
+ public:
+
+  VideoManager(): window(800, 600) {}
 
   ~VideoManager() {} ;
 
@@ -95,7 +97,6 @@ private:
 StatusCode checkRequiredExtensions(const std::vector<const char*> &requiredExtensions);
 StatusCode checkRequiredLayers(const std::vector<const char*> &requiredLayers);
 
-extern VideoManager mVideoManager;
 
 } // namespace benpu
 #endif

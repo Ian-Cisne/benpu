@@ -7,7 +7,7 @@
 #include <vulkan/vulkan_handles.hpp>
 
 
-#include "configuration.h"
+#include "core/utils/configuration.h"
 #include "status_code.h"
 
 namespace benpu {

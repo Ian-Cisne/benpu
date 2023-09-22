@@ -1014,6 +1014,4 @@ void VideoManager::dismantle() {
   instance.destroy();
 }
 
-VideoManager mVideoManager;
-
 } // namespace benpu

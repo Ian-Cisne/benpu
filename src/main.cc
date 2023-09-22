@@ -7,8 +7,10 @@
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup.hpp>
 
-#include "configuration.h"
-#include "video_manager.h"
+#include "core/configuration_manager.h"
+#include "core/utils/configuration.h"
+#include "core/utils/system.h"
+#include "core/utils/args.h"
 
 static void init_log() {
   static const std::string COMMON_FMT("[%TimeStamp%][%Severity%]:  %Message%");
@@ -39,17 +41,20 @@ static void init_log() {
 
 }
 
-int main() {
+int main(int argc, char** argv ) {
+  
   init_log();
+  
+  benpu::Args args{argc, argv};
 
-  benpu::mVideoManager.setUp();
+  if(!args.isCorrect()) {
+    benpu::System::printHelp();
+    return 1;
+  }
+  
+  benpu::ConfigurationManager& conifgurationManager = benpu::ConfigurationManager::getInstance(args);
 
-  BOOST_LOG_TRIVIAL(info) << "Video setted up.";
-
-  benpu::mVideoManager.run();
-
-
-  benpu::mVideoManager.dismantle();
+  float o = conifgurationManager()["screenSize"]["x"];
 
   return 0;    
 }

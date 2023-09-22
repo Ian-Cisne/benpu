@@ -38,4 +38,5 @@ build/*
 compile_commands.json
 src/configuration.h
 .cache/*
-
+launch.json
+.vscode/*

@@ -30,6 +30,9 @@ include_directories(${GLM_INCLUDE_DIRS})
 find_package(glfw3 REQUIRED)
 include_directories(${GLFW_INCLUDE_DIRS})
 
+find_package(nlohmann_json 3.2.0 REQUIRED)
+include_directories(${nlohmann_json_INCLUDE_DIRS})
+
 file(GLOB SHADERS "src/shaders/*.vert" "src/shaders/*.frag")
 foreach(SHADER_FILE ${SHADERS})
     get_filename_component(SHADER_NAME ${SHADER_FILE} NAME)
@@ -49,6 +52,7 @@ endforeach()
 add_custom_target(shaders DEPENDS ${SPIRV_FILES})
 
 include_directories(lib/vkfw)
+include_directories(src)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -56,10 +60,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(SOURCES 
   src/main.cc
   src/video_manager.cc
-  src/vulkan_functions.cc
-  src/window.cc)
+  src/window.cc
+  src/core/configuration_manager.cc
+  src/core/utils/args.cc
+  src/core/utils/system.cc
+)
 
-configure_file(src/configuration.h.in "${PROJECT_SOURCE_DIR}/src/configuration.h")
+set(BENPU_VERSION_MINOR)
+
+configure_file(src/core/utils/configuration.h.in "${PROJECT_SOURCE_DIR}/src/core/utils/configuration.h")
 
 
 add_executable(benpu ${SOURCES}) 
@@ -68,5 +77,7 @@ target_link_libraries(benpu Boost::log Boost::log_setup Boost::date_time)
 target_link_libraries(benpu Vulkan::Vulkan)
 target_link_libraries(benpu glfw)
 target_link_libraries(benpu volk)
+target_link_libraries(benpu nlohmann_json::nlohmann_json)
+
 
 add_dependencies(benpu shaders)
