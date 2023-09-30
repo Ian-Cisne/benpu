@@ -1,5 +1,6 @@
 #include "video_manager.h"
 
+#include <X11/X.h>
 #include <algorithm>
 
 #include <boost/log/core.hpp>
@@ -107,7 +108,6 @@ StatusCode VideoManager::createInstance() {
 
     if (checkRequiredExtensions(requiredExtensions) != StatusCode::success) {
       BOOST_LOG_TRIVIAL(error) << "One or more of required extensions haven't been found.";
-
     }
 
     std::vector<const char *> requiredLayers{"VK_LAYER_KHRONOS_validation"};
@@ -121,11 +121,11 @@ StatusCode VideoManager::createInstance() {
 
     BOOST_LOG_TRIVIAL(info) << "Creating instance info.";
     vk::InstanceCreateInfo instanceInfo(
-        vk::InstanceCreateFlags{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR | VK_KHR_portability_enumeration}, 
-        &appInfo,
-        static_cast<uint32_t>(requiredLayers.size()),
-        requiredLayers.data(), static_cast<uint32_t>(requiredExtensions.size()),
-        requiredExtensions.data());
+      vk::InstanceCreateFlags{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR | VK_KHR_portability_enumeration}, 
+      &appInfo,
+      static_cast<uint32_t>(requiredLayers.size()),
+      requiredLayers.data(), static_cast<uint32_t>(requiredExtensions.size()),
+      requiredExtensions.data());
 
     BOOST_LOG_TRIVIAL(info) << "Creating instance.";
     instance = vk::createInstance(instanceInfo);
@@ -148,15 +148,15 @@ StatusCode VideoManager::createSurface() {
 }
 
 bool checkDeviceExtensionSupport(vk::PhysicalDevice device, const std::vector<const char*>& deviceExtensions) {
-    std::vector<vk::ExtensionProperties> availableExtension = device.enumerateDeviceExtensionProperties();
+  std::vector<vk::ExtensionProperties> availableExtension = device.enumerateDeviceExtensionProperties();
 
-    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+  std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
-    for (const vk::ExtensionProperties& extension : availableExtension) {
-        requiredExtensions.erase(extension.extensionName);
-    }
+  for (const vk::ExtensionProperties& extension : availableExtension) {
+    requiredExtensions.erase(extension.extensionName);
+  }
 
-    return requiredExtensions.empty();
+  return requiredExtensions.empty();
 }
 
 VideoManager::SwapChainSupportDetails VideoManager::querySwapChainSupport(vk::PhysicalDevice device) {
@@ -170,20 +170,20 @@ VideoManager::SwapChainSupportDetails VideoManager::querySwapChainSupport(vk::Ph
 
 vk::SurfaceFormatKHR VideoManager::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats) {
   for (const auto& availableFormat : availableFormats) {
-      if (availableFormat.format == vk::Format::eB8G8R8A8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
-          return availableFormat;
-      }
+    if (availableFormat.format == vk::Format::eB8G8R8A8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+      return availableFormat;
+    }
   }
   return availableFormats[0];
 }
 
 vk::PresentModeKHR VideoManager::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes) {
   for (const auto& availablePresentMode : availablePresentModes) {
-        if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
-            return availablePresentMode;
-        }
+    if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
+      return availablePresentMode;
     }
-    return vk::PresentModeKHR::eFifo;
+  }
+  return vk::PresentModeKHR::eFifo;
 }
 
 vk::Extent2D VideoManager::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities){
@@ -263,7 +263,7 @@ StatusCode VideoManager::createSwapChain(QueueFamilyIndices& queueFamilyIndices)
 
   } catch (vk::SystemError& e) {
     BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while Swapchain creation: " << e.what();
-    return StatusCode::swapchainreationError;
+    return StatusCode::swapchainCreationError;
 
   }
   return StatusCode::success;
@@ -419,6 +419,7 @@ StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices, co
       );
       queueCreateInfos.push_back(queueCreateInfo);
     }
+
     vk::PhysicalDeviceFeatures deviceFeatures;
 
     vk::DeviceCreateInfo deviceInfo(
@@ -439,6 +440,7 @@ StatusCode VideoManager::createDevice(QueueFamilyIndices& queueFamilyIndices, co
 
   } catch (vk::SystemError& e) {
     BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while Device creation: " << e.what();
+
     return StatusCode::deviceCreationError;
   }
   return StatusCode::success;
@@ -460,7 +462,8 @@ StatusCode VideoManager::createImageViews(){
         vk::ComponentMapping(
             vk::ComponentSwizzle::eIdentity,
           vk::ComponentSwizzle::eIdentity,
-          vk::ComponentSwizzle::eIdentity
+          vk::ComponentSwizzle::eIdentity,
+          vk::ComponentSwizzle::eA
           ),
         vk::ImageSubresourceRange(
             vk::ImageAspectFlagBits::eColor,
@@ -496,24 +499,6 @@ static StatusCode readFile(const std::string& filename, std::vector<char>& buffe
   return StatusCode::success;
 }
 
-StatusCode VideoManager::createShaderModule(const std::vector<char>& code, vk::ShaderModule& shaderModule) {
-  try {
-
-    vk::ShaderModuleCreateInfo createInfo(
-      {},
-      code.size(),
-      reinterpret_cast<const uint32_t*>(code.data())
-    );
-
-    shaderModule = device.createShaderModule(createInfo);
-
-  } catch(vk::SystemError& e) {
-    BOOST_LOG_TRIVIAL(error) << "Vulkan error ocurred while shader module creation: " << e.what();
-    return StatusCode::shaderModuleCreationError;
-  }
-
-  return StatusCode::success;
-}
 
 StatusCode VideoManager::createRenderPass() {
   
@@ -930,7 +915,7 @@ void VideoManager::drawFrame() {
   uint32_t imageIndex;
   device.acquireNextImageKHR(swapchain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, nullptr, &imageIndex);
   commandBuffer.reset();
-  recordCommandBuffer(commandBuffer,imageIndex);
+  recordCommandBuffer(commandBuffer, imageIndex);
 
   vk::Semaphore waitSemaphores[] = {imageAvailableSemaphore};
   vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};

@@ -15,6 +15,8 @@ public:
 
   Args(int argc, char** argv);
   bool isCorrect() const { return areArgumentsCorrect; }
+  std::string getValue(ArgType argType);
+
 private:
   friend class ConfigurationManager;
   bool areArgumentsCorrect;

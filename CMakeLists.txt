@@ -34,14 +34,16 @@ find_package(nlohmann_json 3.2.0 REQUIRED)
 include_directories(${nlohmann_json_INCLUDE_DIRS})
 
 file(GLOB SHADERS "src/shaders/*.vert" "src/shaders/*.frag")
+set(SHADER_BUILD_PATH "${CMAKE_BINARY_DIR}/shaders")
+file(MAKE_DIRECTORY ${SHADER_BUILD_PATH})
 foreach(SHADER_FILE ${SHADERS})
     get_filename_component(SHADER_NAME ${SHADER_FILE} NAME)
-    set(SPIRV_FILE "${CMAKE_BINARY_DIR}/shaders/${SHADER_NAME}.spv")
+    set(SPIRV_FILE "${SHADER_BUILD_PATH}/${SHADER_NAME}.spv")
     message(${SPIRV_FILE})
     
     add_custom_command(
         OUTPUT ${SPIRV_FILE}
-        COMMAND glslc -o ${SPIRV_FILE} ${SHADER_FILE}
+        COMMAND glslc ${SHADER_FILE} -o ${SPIRV_FILE}
         DEPENDS ${SHADER_FILE}
         COMMENT "Compiling ${SHADER_NAME} to SPIR-V"
     )
@@ -57,27 +59,37 @@ include_directories(src)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(SOURCES 
-  src/main.cc
-  src/video_manager.cc
-  src/window.cc
-  src/core/configuration_manager.cc
-  src/core/utils/args.cc
-  src/core/utils/system.cc
+set(SOURCES_FILES
+  core/configuration_manager.cc
+  core/utils/args.cc
+  core/utils/system.cc
+  render/vulkan/renderer.cc
+  render/vulkan/command_buffer.cc
+  render/vulkan/swapchain.cc
+  render/vulkan/window.cc
 )
+
+foreach(SOURCE IN LISTS SOURCES_FILES)
+  list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/src/${SOURCE}")
+endforeach()
 
 set(BENPU_VERSION_MINOR)
 
-configure_file(src/core/utils/configuration.h.in "${PROJECT_SOURCE_DIR}/src/core/utils/configuration.h")
+configure_file(configuration.h.in "${PROJECT_SOURCE_DIR}/src/core/utils/configuration.h")
 
+add_library(benpu_lib ${SOURCES})
+add_dependencies(benpu_lib shaders)
 
-add_executable(benpu ${SOURCES}) 
+enable_testing()
+add_subdirectory(test)
 
-target_link_libraries(benpu Boost::log Boost::log_setup Boost::date_time)
-target_link_libraries(benpu Vulkan::Vulkan)
-target_link_libraries(benpu glfw)
-target_link_libraries(benpu volk)
-target_link_libraries(benpu nlohmann_json::nlohmann_json)
+add_executable(benpu src/main.cc) 
 
+target_link_libraries(benpu_lib Boost::log Boost::log_setup Boost::date_time)
+target_link_libraries(benpu_lib Vulkan::Vulkan)
+target_link_libraries(benpu_lib glfw)
+target_link_libraries(benpu_lib volk)
+target_link_libraries(benpu_lib nlohmann_json::nlohmann_json)
 
-add_dependencies(benpu shaders)
+target_link_libraries(benpu benpu_lib)
+

@@ -1,12 +1,14 @@
 
-#include "window.h"
+#include <boost/log/trivial.hpp>
+
 #include "vkfw.hpp"
+
+#include "render/vulkan/window.h"
 
 namespace benpu {
 
-  Window::Window(uint32_t width, uint32_t height): width{width}, height(height){
-    //vkfw::init();
-
+  Window::Window(uint32_t width, uint32_t height): width{width}, height{height} {
+    
     vkfw::WindowHints hints;
     hints.clientAPI = vkfw::ClientAPI::eNone;
     //for now it won't be resizable
@@ -17,7 +19,6 @@ namespace benpu {
 
   Window::~Window() {
     window.destroy();
-    //vkfw::terminate();
   }
 
   std::vector<const char*> Window::getRequiredVulkanExtensions() {
@@ -35,7 +36,7 @@ namespace benpu {
     return vector;
   }
 
-  std::tuple<int, int> Window::getFramebufferSize() {
+  std::tuple<int, int> Window::getFramebufferSize() const {
     return window.getFramebufferSize();
   }
 

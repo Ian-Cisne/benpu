@@ -14,19 +14,14 @@ namespace benpu {
 class ConfigurationManager {
 public:
 
-  static ConfigurationManager& getInstance(Args args) {
-    static ConfigurationManager instance{args};
-    return instance;
-  }
+  static ConfigurationManager& getInstance(Args* args = nullptr);
 
-  nlohmann::json operator()() {
-    return configuration;
-  }
+  nlohmann::json operator[](std::string a);
 
 private:
   nlohmann::json configuration;
 
-  ConfigurationManager(Args args);
+  ConfigurationManager(Args& args);
 
   ~ConfigurationManager() {}
 

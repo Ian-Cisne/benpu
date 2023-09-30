@@ -10,7 +10,7 @@ enum StatusCode: int {
     noProprerPhysicalDeviceFound,
     imageViewsCreationError,
     deviceCreationError,
-    swapchainreationError,
+    swapchainCreationError,
     fileCouldntBeOpened,
     graphicsPipelineCreationError,
     shaderModuleCreationError,
@@ -20,7 +20,14 @@ enum StatusCode: int {
     commandBufferCreationError,
     commandBufferRecordError,
     semaphoreCreationError,
-    fenceCreationError
+    fenceCreationError,
+    extensionNotPresent,
+    queueCreationError
 };
 
+enum ObjectStatus {
+    unitialized,
+    ok,
+    error
+};
 #endif
